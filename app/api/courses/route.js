@@ -1,6 +1,11 @@
 /**
  * API Route: /api/courses
  * 
+ * Requires: 
+ * - DATABASE_URL or NEON_DATABASE_URL (Neon Postgres connection string)
+ * - CLERK_SECRET_KEY (for authenticated requests)
+ * - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY (for Clerk authentication)
+ * 
  * FIX: Added comprehensive error handling to prevent 500 errors:
  * - Validates DATABASE_URL before any DB operations
  * - Handles Clerk auth errors gracefully

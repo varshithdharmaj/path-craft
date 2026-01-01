@@ -1,3 +1,11 @@
+/**
+ * Database Integration (Neon Postgres + Drizzle ORM)
+ * 
+ * Requires: DATABASE_URL or NEON_DATABASE_URL (Neon Postgres connection string)
+ * 
+ * This module provides database access using Drizzle ORM with Neon serverless Postgres.
+ * The connection is initialized lazily to prevent errors during build time.
+ */
 import "server-only";
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
