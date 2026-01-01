@@ -12,8 +12,10 @@ export const metadata = {
 };
 
 export default function RootLayout({ children }) {
+  const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+  
   return (
-    <ClerkProvider>
+    <ClerkProvider publishableKey={clerkPublishableKey}>
       <html lang="en">
         <body className={`${poppins.className}`}>
           {children}
