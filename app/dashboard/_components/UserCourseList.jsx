@@ -25,21 +25,63 @@ function UserCourseList() {
       const response = await fetch("/api/courses");
       
       if (!response.ok) {
-        throw new Error("Failed to fetch courses");
+        // Try to read the JSON error response
+        let errorMessage = "Failed to fetch courses";
+        let errorDetails = null;
+        
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+          errorDetails = errorData.details;
+        } catch (parseError) {
+          // If JSON parsing fails, use status text
+          errorMessage = response.statusText || errorMessage;
+        }
+        
+        console.error(`API Error (${response.status}):`, errorMessage, errorDetails);
+        
+        // Handle specific error cases
+        if (response.status === 401) {
+          toast({
+            variant: "destructive",
+            duration: 3000,
+            title: "Authentication Required",
+            description: "Please sign in to view your courses.",
+          });
+        } else {
+          toast({
+            variant: "destructive",
+            duration: 5000,
+            title: "Error Loading Courses",
+            description: errorDetails || errorMessage,
+          });
+        }
+        
+        // Set empty array on error to show "create first course" message
+        setCourseList([]);
+        setUserCourseList([]);
+        return;
       }
       
       const result = await response.json();
-      setCourseList(result);
-      setUserCourseList(result);
-      localStorage.setItem("userCourseList", JSON.stringify(result));
+      
+      // Ensure result is an array
+      const courses = Array.isArray(result) ? result : [];
+      
+      setCourseList(courses);
+      setUserCourseList(courses);
+      localStorage.setItem("userCourseList", JSON.stringify(courses));
     } catch (error) {
       console.error("Error fetching courses:", error);
       toast({
         variant: "destructive",
-        duration: 3000,
-        title: "Uh oh! Something went wrong.",
-        description: "There was a problem with your request.",
+        duration: 5000,
+        title: "Network Error",
+        description: error.message || "Unable to connect to the server. Please check your connection.",
       });
+      // Set empty array on error
+      setCourseList([]);
+      setUserCourseList([]);
     } finally {
       setIsLoading(false);
     }

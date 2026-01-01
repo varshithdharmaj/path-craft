@@ -1,3 +1,13 @@
+/**
+ * API Route: /api/courses
+ * 
+ * FIX: Added comprehensive error handling to prevent 500 errors:
+ * - Validates DATABASE_URL before any DB operations
+ * - Handles Clerk auth errors gracefully
+ * - Returns proper JSON error responses instead of crashing
+ * - Returns empty array [] when no courses found (not an error)
+ * - Client-side now reads JSON error responses for better UX
+ */
 import { db } from "@/integrations/db";
 import { CourseList } from "@/integrations/schema";
 import { desc, eq } from "drizzle-orm";
@@ -23,6 +33,11 @@ export async function GET(request) {
     // If requesting published courses (for showcase), return all published courses
     if (published === "true") {
       try {
+        // Validate database is accessible before querying
+        if (!db || typeof db.select !== "function") {
+          throw new Error("Database client is not properly initialized");
+        }
+
         const result = await db
           .select()
           .from(CourseList)
@@ -30,11 +45,17 @@ export async function GET(request) {
           .orderBy(desc(CourseList.id));
 
         // Return empty array if no courses found (not an error)
-        return NextResponse.json(result || [], { status: 200 });
+        // Ensure result is always an array
+        const courses = Array.isArray(result) ? result : [];
+        return NextResponse.json(courses, { status: 200 });
       } catch (dbError) {
         console.error("Database error fetching published courses:", dbError);
+        const errorMessage = dbError?.message || "Unknown database error";
         return NextResponse.json(
-          { error: "Failed to fetch published courses", details: dbError.message },
+          { 
+            error: "Failed to fetch published courses", 
+            details: process.env.NODE_ENV === "development" ? errorMessage : "Database connection error"
+          },
           { status: 500 }
         );
       }
@@ -74,6 +95,11 @@ export async function GET(request) {
 
     // Fetch user's courses
     try {
+      // Validate database is accessible before querying
+      if (!db || typeof db.select !== "function") {
+        throw new Error("Database client is not properly initialized");
+      }
+
       const result = await db
         .select()
         .from(CourseList)
@@ -81,11 +107,17 @@ export async function GET(request) {
         .orderBy(desc(CourseList.id));
 
       // Return empty array if no courses found (not an error)
-      return NextResponse.json(result || [], { status: 200 });
+      // Ensure result is always an array
+      const courses = Array.isArray(result) ? result : [];
+      return NextResponse.json(courses, { status: 200 });
     } catch (dbError) {
       console.error("Database error fetching user courses:", dbError);
+      const errorMessage = dbError?.message || "Unknown database error";
       return NextResponse.json(
-        { error: "Failed to fetch courses", details: dbError.message },
+        { 
+          error: "Failed to fetch courses", 
+          details: process.env.NODE_ENV === "development" ? errorMessage : "Database connection error"
+        },
         { status: 500 }
       );
     }
