@@ -44,10 +44,19 @@ function getDb() {
 
 export const db = new Proxy({} as ReturnType<typeof drizzle>, {
   get(target, prop) {
-    const dbInstance = getDb();
-    if (!dbInstance) {
-      throw new Error("Database not initialized. Make sure DATABASE_URL is set in your .env.local file.");
+    try {
+      const dbInstance = getDb();
+      if (!dbInstance) {
+        const connectionString = getConnectionString();
+        if (!connectionString) {
+          throw new Error("DATABASE_URL (or NEON_DATABASE_URL) is not set. Add it to your environment variables.");
+        }
+        throw new Error("Database connection failed. Check your DATABASE_URL connection string.");
+      }
+      return dbInstance[prop];
+    } catch (error) {
+      console.error("Database access error:", error);
+      throw error;
     }
-    return dbInstance[prop];
   },
 });

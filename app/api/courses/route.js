@@ -1,63 +1,101 @@
 import { db } from "@/integrations/db";
 import { CourseList } from "@/integrations/schema";
 import { desc, eq } from "drizzle-orm";
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { getUserEmailFromClerk } from "@/lib/clerk-utils";
 
 // GET - Get all courses for the authenticated user or published courses
 export async function GET(request) {
   try {
+    // Validate database connection
+    if (!process.env.DATABASE_URL && !process.env.NEON_DATABASE_URL) {
+      console.error("DATABASE_URL is not set");
+      return NextResponse.json(
+        { error: "Database configuration error", details: "DATABASE_URL is not set" },
+        { status: 500 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const published = searchParams.get("published");
 
     // If requesting published courses (for showcase), return all published courses
     if (published === "true") {
-      const result = await db
-        .select()
-        .from(CourseList)
-        .where(eq(CourseList.publish, true))
-        .orderBy(desc(CourseList.id));
+      try {
+        const result = await db
+          .select()
+          .from(CourseList)
+          .where(eq(CourseList.publish, true))
+          .orderBy(desc(CourseList.id));
 
-      return NextResponse.json(result, { status: 200 });
+        // Return empty array if no courses found (not an error)
+        return NextResponse.json(result || [], { status: 200 });
+      } catch (dbError) {
+        console.error("Database error fetching published courses:", dbError);
+        return NextResponse.json(
+          { error: "Failed to fetch published courses", details: dbError.message },
+          { status: 500 }
+        );
+      }
     }
 
     // Otherwise, get courses for authenticated user
-    const { userId } = await auth();
+    let userId;
+    try {
+      const authResult = await auth();
+      userId = authResult?.userId;
+    } catch (authError) {
+      console.error("Auth error:", authError);
+      return NextResponse.json(
+        { error: "Authentication error", details: authError.message },
+        { status: 401 }
+      );
+    }
     
     if (!userId) {
       return NextResponse.json(
-        { error: "Unauthorized" },
+        { error: "Unauthorized", details: "User not authenticated" },
         { status: 401 }
       );
     }
 
     // Get user email from Clerk
-    const user = await fetch(`https://api.clerk.com/v1/users/${userId}`, {
-      headers: {
-        Authorization: `Bearer ${process.env.CLERK_SECRET_KEY}`,
-      },
-    }).then((res) => res.json());
-
-    const userEmail = user?.email_addresses?.[0]?.email_address;
-
-    if (!userEmail) {
+    let userEmail;
+    try {
+      userEmail = await getUserEmailFromClerk(userId);
+    } catch (emailError) {
+      console.error("Error getting user email:", emailError);
       return NextResponse.json(
-        { error: "User email not found" },
-        { status: 400 }
+        { error: "Failed to get user information", details: emailError.message },
+        { status: 500 }
       );
     }
 
-    const result = await db
-      .select()
-      .from(CourseList)
-      .where(eq(CourseList.createdBy, userEmail))
-      .orderBy(desc(CourseList.id));
+    // Fetch user's courses
+    try {
+      const result = await db
+        .select()
+        .from(CourseList)
+        .where(eq(CourseList.createdBy, userEmail))
+        .orderBy(desc(CourseList.id));
 
-    return NextResponse.json(result, { status: 200 });
+      // Return empty array if no courses found (not an error)
+      return NextResponse.json(result || [], { status: 200 });
+    } catch (dbError) {
+      console.error("Database error fetching user courses:", dbError);
+      return NextResponse.json(
+        { error: "Failed to fetch courses", details: dbError.message },
+        { status: 500 }
+      );
+    }
   } catch (error) {
-    console.error("Error fetching courses:", error);
+    console.error("GET /api/courses error:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { 
+        error: "Internal server error", 
+        details: process.env.NODE_ENV === "development" ? error.message : undefined 
+      },
       { status: 500 }
     );
   }
@@ -66,52 +104,108 @@ export async function GET(request) {
 // POST - Create a new course
 export async function POST(request) {
   try {
-    const { userId } = await auth();
+    // Validate database connection
+    if (!process.env.DATABASE_URL && !process.env.NEON_DATABASE_URL) {
+      console.error("DATABASE_URL is not set");
+      return NextResponse.json(
+        { error: "Database configuration error", details: "DATABASE_URL is not set" },
+        { status: 500 }
+      );
+    }
+
+    // Authenticate user
+    let userId;
+    try {
+      const authResult = await auth();
+      userId = authResult?.userId;
+    } catch (authError) {
+      console.error("Auth error:", authError);
+      return NextResponse.json(
+        { error: "Authentication error", details: authError.message },
+        { status: 401 }
+      );
+    }
     
     if (!userId) {
       return NextResponse.json(
-        { error: "Unauthorized" },
+        { error: "Unauthorized", details: "User not authenticated" },
         { status: 401 }
       );
     }
 
-    const body = await request.json();
-    const { courseId, name, level, category, courseOutput, includeVideo, userName, userProfileImage, courseBanner } = body;
-
-    // Get user email from Clerk
-    const user = await fetch(`https://api.clerk.com/v1/users/${userId}`, {
-      headers: {
-        Authorization: `Bearer ${process.env.CLERK_SECRET_KEY}`,
-      },
-    }).then((res) => res.json());
-
-    const userEmail = user?.email_addresses?.[0]?.email_address;
-
-    if (!userEmail) {
+    // Parse request body
+    let body;
+    try {
+      body = await request.json();
+    } catch (parseError) {
+      console.error("Error parsing request body:", parseError);
       return NextResponse.json(
-        { error: "User email not found" },
+        { error: "Invalid request body", details: "JSON parsing failed" },
         { status: 400 }
       );
     }
 
-    const result = await db.insert(CourseList).values({
-      courseId,
-      name,
-      level,
-      category,
-      courseOutput,
-      createdBy: userEmail,
-      userName: userName || user?.full_name || user?.first_name,
-      includeVideo: includeVideo || "Yes",
-      userProfileImage: userProfileImage || user?.image_url,
-      courseBanner: courseBanner || "/placeholder.png",
-    }).returning();
+    const { courseId, name, level, category, courseOutput, includeVideo, userName, userProfileImage, courseBanner } = body;
 
-    return NextResponse.json(result[0], { status: 201 });
+    // Validate required fields
+    if (!courseId || !name || !level || !category || !courseOutput) {
+      return NextResponse.json(
+        { error: "Missing required fields", details: "courseId, name, level, category, and courseOutput are required" },
+        { status: 400 }
+      );
+    }
+
+    // Get user email from Clerk
+    let userEmail;
+    let userData = null;
+    try {
+      userEmail = await getUserEmailFromClerk(userId);
+      
+      // Also get full user data for fallback values
+      const user = await currentUser();
+      userData = user;
+    } catch (emailError) {
+      console.error("Error getting user email:", emailError);
+      return NextResponse.json(
+        { error: "Failed to get user information", details: emailError.message },
+        { status: 500 }
+      );
+    }
+
+    // Insert course into database
+    try {
+      const result = await db.insert(CourseList).values({
+        courseId,
+        name,
+        level,
+        category,
+        courseOutput,
+        createdBy: userEmail,
+        userName: userName || userData?.fullName || userData?.firstName || null,
+        includeVideo: includeVideo || "Yes",
+        userProfileImage: userProfileImage || userData?.imageUrl || null,
+        courseBanner: courseBanner || "/placeholder.png",
+      }).returning();
+
+      if (!result || result.length === 0) {
+        throw new Error("Course creation returned no result");
+      }
+
+      return NextResponse.json(result[0], { status: 201 });
+    } catch (dbError) {
+      console.error("Database error creating course:", dbError);
+      return NextResponse.json(
+        { error: "Failed to create course", details: dbError.message },
+        { status: 500 }
+      );
+    }
   } catch (error) {
-    console.error("Error creating course:", error);
+    console.error("POST /api/courses error:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { 
+        error: "Internal server error", 
+        details: process.env.NODE_ENV === "development" ? error.message : undefined 
+      },
       { status: 500 }
     );
   }
