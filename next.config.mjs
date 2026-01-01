@@ -6,6 +6,12 @@ const nextConfig = {
       { protocol: "https", hostname: "img.clerk.com" },
     ],
   },
+  // Optimize for Vercel deployment
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '2mb',
+    },
+  },
 };
 
 export default nextConfig;

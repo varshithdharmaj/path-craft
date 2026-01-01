@@ -1,8 +1,5 @@
 "use client";
-import { db } from "@/integrations/db";
-import { CourseList } from "@/integrations/schema";
 import { useUser } from "@clerk/nextjs";
-import { desc, eq } from "drizzle-orm";
 import React, { useContext, useEffect, useState } from "react";
 import CourseCard from "./CourseCard";
 import { UserCourseListContext } from "@/app/_context/UserCourseListContext";
@@ -25,19 +22,18 @@ function UserCourseList() {
 
   const getUserCourses = async () => {
     try {
-      const result = await db
-        .select()
-        .from(CourseList)
-        .where(
-          eq(CourseList.createdBy, user?.primaryEmailAddress?.emailAddress)
-        )
-        .orderBy(desc(CourseList.id));
-
-      // console.log(result);
+      const response = await fetch("/api/courses");
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch courses");
+      }
+      
+      const result = await response.json();
       setCourseList(result);
       setUserCourseList(result);
       localStorage.setItem("userCourseList", JSON.stringify(result));
     } catch (error) {
+      console.error("Error fetching courses:", error);
       toast({
         variant: "destructive",
         duration: 3000,

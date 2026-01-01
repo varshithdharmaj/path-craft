@@ -5,9 +5,6 @@ import { HiChevronDoubleLeft } from "react-icons/hi";
 import ChapterListCard from "./_components/ChapterListCard";
 import ChapterContent from "./_components/ChapterContent";
 import React, { useState, useEffect } from "react";
-import { db } from "@/integrations/db";
-import { Chapters, CourseList } from "@/integrations/schema";
-import { and, eq } from "drizzle-orm";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button"; // Import shadcn button
@@ -46,16 +43,17 @@ function CourseStart({ params }) {
   const GetCourse = async () => {
     setCourseLoading(true);
     try {
-      const result = await db
-        .select()
-        .from(CourseList)
-        .where(eq(CourseList.courseId, Params?.courseId));
-
-      if (result.length > 0) {
-        const fetchedCourse = result[0];
-        setCourse(fetchedCourse);
+      const params = await Params;
+      const response = await fetch(`/api/courses/${params?.courseId}`);
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch course");
       }
+      
+      const fetchedCourse = await response.json();
+      setCourse(fetchedCourse);
     } catch (error) {
+      console.error("Error fetching course:", error);
       toast({
         variant: "destructive",
         duration: 3000,
@@ -70,20 +68,20 @@ function CourseStart({ params }) {
   const GetSelectedChapterContent = async (chapterId) => {
     setContentLoading(true);
     try {
-      const result = await db
-        .select()
-        .from(Chapters)
-        .where(
-          and(
-            eq(Chapters.courseId, course?.courseId),
-            eq(Chapters.chapterId, chapterId)
-          )
-        );
-
+      const response = await fetch(
+        `/api/chapters?courseId=${course?.courseId}&chapterId=${chapterId}`
+      );
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch chapter content");
+      }
+      
+      const result = await response.json();
       if (result.length > 0) {
         setSelectedChapterContent(result[0]);
       }
     } catch (error) {
+      console.error("Error fetching chapter content:", error);
       toast({
         variant: "destructive",
         title: "Uh oh! Something went wrong.",

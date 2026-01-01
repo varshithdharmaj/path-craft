@@ -10,9 +10,6 @@ import {
   ref,
   uploadBytes,
 } from "firebase/storage";
-import { db } from "@/integrations/db";
-import { CourseList } from "@/integrations/schema";
-import { eq } from "drizzle-orm";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 
@@ -55,11 +52,18 @@ function CourseBasicInfo({ course, refreshData, edit = true }) {
       const imageLink = await getDownloadURL(storageRef);
       // console.log("Image Link Generated!", imageLink);
 
-      const result = await db
-        .update(CourseList)
-        .set({ courseBanner: imageLink })
-        .where(eq(CourseList.id, course?.id));
-      // console.log(result);
+      const response = await fetch(`/api/courses/${course?.id}/by-id`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ courseBanner: imageLink }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update course banner");
+      }
+
       refreshData(true);
     } catch (error) {
       // console.log(error);

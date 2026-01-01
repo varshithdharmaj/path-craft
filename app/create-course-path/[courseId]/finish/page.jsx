@@ -1,8 +1,5 @@
 "use client";
-import { db } from "@/integrations/db";
-import { CourseList } from "@/integrations/schema";
 import { useUser } from "@clerk/nextjs";
-import { and, eq } from "drizzle-orm";
 import React, { useEffect, useState } from "react";
 import CourseBasicInfo from "../_components/CourseBasicInfo";
 import { HiOutlineClipboardDocumentCheck } from "react-icons/hi2";
@@ -37,29 +34,26 @@ function FinishScreen({ params }) {
     if (!user || !courseId) return;
 
     try {
-      const result = await db
-        .select()
-        .from(CourseList)
-        .where(
-          and(
-            eq(CourseList.courseId, courseId),
-            eq(CourseList.createdBy, user?.primaryEmailAddress?.emailAddress)
-          )
-        );
-
-      if (!result.length) {
-        toast({
-          variant: "destructive",
-          duration: 3000,
-          title: "Course not found!",
-          description: "The course ID might be incorrect.",
-        });
-        setLoading(false);
-        return;
+      const response = await fetch(`/api/courses/${courseId}`);
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          toast({
+            variant: "destructive",
+            duration: 3000,
+            title: "Course not found!",
+            description: "The course ID might be incorrect.",
+          });
+          setLoading(false);
+          return;
+        }
+        throw new Error("Failed to fetch course");
       }
 
-      setCourse(result[0]);
+      const courseData = await response.json();
+      setCourse(courseData);
     } catch (error) {
+      console.error("Error fetching course:", error);
       toast({
         variant: "destructive",
         duration: 3000,

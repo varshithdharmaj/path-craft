@@ -18,6 +18,8 @@ https://www.figma.com/board/Ya9PNPu4zzRnnTGJQEPUkO/user-flow-design?node-id=0-1&
 
 ## Getting Started
 
+### Local Development
+
 To set up and run PathCraft locally, follow these steps:
 
 1. **Clone the repository**:
@@ -32,15 +34,35 @@ To set up and run PathCraft locally, follow these steps:
    ```
 
 3. **Configure environment variables**:
-   - Create a `.env.local` file in the root directory and add the necessary environment variables, such as API keys for Gemini AI and the YouTube API
+   - Copy `.env.example` to `.env.local`:
+     ```bash
+     cp .env.example .env.local
+     ```
+   - Edit `.env.local` and add all required environment variables (see `.env.example` for reference)
 
+4. **Set up the database**:
+   ```bash
+   npm run db:push
+   ```
 
-4. **Run the development server**:
+5. **Run the development server**:
    ```bash
    npm run dev
    ```
 
-5. Open [http://localhost:3000](http://localhost:3000) in your browser to access the application.
+6. Open [http://localhost:3000](http://localhost:3000) in your browser to access the application.
+
+### Deployment to Vercel
+
+For detailed deployment instructions, see [VERCEL_DEPLOYMENT.md](./VERCEL_DEPLOYMENT.md)
+
+Quick steps:
+1. Push your code to GitHub
+2. Import your repository in [Vercel](https://vercel.com)
+3. Add all environment variables in Vercel dashboard
+4. Deploy!
+
+See [DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md) for a pre-deployment checklist.
 
 ## Technologies Used
 

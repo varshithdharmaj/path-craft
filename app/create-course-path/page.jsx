@@ -10,10 +10,7 @@ import SelectCategory from "./_components/SelectCategory";
 import TopicDescription from "./_components/TopicDescription";
 import SelectOptions from "./_components/SelectOptions";
 import { UserInputContext } from "../_context/UserInputContext";
-import { GenerateCourseLayout_AI } from "@/integrations/model";
 import LoadingDialog from "./_components/LoadingDialog";
-import { db } from "@/integrations/db";
-import { CourseList } from "@/integrations/schema";
 import uuid4 from "uuid4";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
@@ -88,56 +85,65 @@ function CreateCourse() {
         ", in JSON format";
 
       const FINAL_PROMPT = BASIC_PROMPT + USER_INPUT_PROMPT;
-      // console.log(FINAL_PROMPT);
 
-      const result = await GenerateCourseLayout_AI.sendMessage(FINAL_PROMPT);
-      // console.log(result.response.text());
-      // console.log(JSON.parse(result.response.text()));
-      SaveCourseLayoutInDB(JSON.parse(result.response?.text()));
+      // Call AI API to generate course layout
+      const aiResponse = await fetch("/api/ai/generate-layout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ prompt: FINAL_PROMPT }),
+      });
+
+      if (!aiResponse.ok) {
+        const errorData = await aiResponse.json();
+        throw new Error(errorData.error || "Failed to generate course layout");
+      }
+
+      const courseLayout = await aiResponse.json();
+
+      // Save course layout to database
+      const id = uuid4();
+      const saveResponse = await fetch("/api/courses", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          courseId: id,
+          name: userCourseInput?.topic,
+          level: userCourseInput?.level,
+          category: userCourseInput?.category,
+          courseOutput: courseLayout,
+          userName: user?.fullName,
+          includeVideo: userCourseInput?.displayVideo,
+          userProfileImage: user?.imageUrl,
+        }),
+      });
+
+      if (!saveResponse.ok) {
+        const errorData = await saveResponse.json();
+        throw new Error(errorData.error || "Failed to save course");
+      }
+
       toast({
         variant: "success",
         duration: 3000,
         title: "Course Layout Generated Successfully!",
         description: "Course Layout has been generated successfully!",
       });
+
+      router.replace(`/create-course-path/${id}`);
     } catch (error) {
-      // console.log(error);
+      console.error("Error:", error);
       toast({
         variant: "destructive",
         duration: 3000,
         title: "Uh oh! Something went wrong.",
-        description: "There was a problem with your request.",
+        description: error.message || "There was a problem with your request.",
       });
     } finally {
       setLoading(false);
-    }
-  };
-
-  const SaveCourseLayoutInDB = async (courseLayout) => {
-    try {
-      var id = uuid4();
-      const result = await db.insert(CourseList).values({
-        courseId: id,
-        name: userCourseInput?.topic,
-        level: userCourseInput?.level,
-        category: userCourseInput?.category,
-        courseOutput: courseLayout,
-        createdBy: user?.primaryEmailAddress?.emailAddress,
-        userName: user?.fullName,
-        includeVideo: userCourseInput?.displayVideo,
-        userProfileImage: user?.imageUrl,
-      });
-
-      // console.log("Course Layout Saved in DB", result.command);
-      router.replace(`/create-course-path/${id}`);
-    } catch (error) {
-      // console.log(error);
-      toast({
-        variant: "destructive",
-        duration: 3000,
-        title: "Uh oh! Something went wrong.",
-        description: "There was a problem with your request.",
-      });
     }
   };
   return (

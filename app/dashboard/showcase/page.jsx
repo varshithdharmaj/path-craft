@@ -1,9 +1,6 @@
 "use client";
-import { db } from "@/integrations/db";
-import { CourseList } from "@/integrations/schema";
 import React, { useEffect, useState } from "react";
 import CourseCard from "../_components/CourseCard";
-import { desc, eq } from "drizzle-orm";
 import { useToast } from "@/hooks/use-toast";
 
 function Showcase() {
@@ -16,14 +13,16 @@ function Showcase() {
          
   const GetAllCourses = async () => {
     try {
-      const result = await db
-        .select()
-        .from(CourseList)
-        .where(eq(CourseList.publish, true))
-        .orderBy(desc(CourseList.id));
-
+      const response = await fetch("/api/courses?published=true");
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch courses");
+      }
+      
+      const result = await response.json();
       setCourseList(result);
     } catch (error) {
+      console.error("Error fetching courses:", error);
       toast({
         variant: "destructive",
         duration: 3000,

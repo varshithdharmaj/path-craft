@@ -13,9 +13,6 @@ import { HiPencilSquare } from "react-icons/hi2";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { db } from "@/integrations/db";
-import { CourseList } from "@/integrations/schema";
-import { eq } from "drizzle-orm";
 import { useToast } from "@/hooks/use-toast";
 
 function EditChapters({ course, index, refreshData }) {
@@ -34,13 +31,18 @@ function EditChapters({ course, index, refreshData }) {
       course.courseOutput.Chapters[index].ChapterName = chapterName;
       course.courseOutput.Chapters[index].About = about;
 
-      const result = await db
-        .update(CourseList)
-        .set({ courseOutput: course?.courseOutput })
-        .where(eq(CourseList?.id, course?.id))
-        .returning({ id: CourseList.id });
+      const response = await fetch(`/api/courses/${course?.courseId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ courseOutput: course?.courseOutput }),
+      });
 
-      // console.log(result);
+      if (!response.ok) {
+        throw new Error("Failed to update chapter");
+      }
+
       refreshData(true);
       toast({
         variant: "success",
@@ -49,7 +51,7 @@ function EditChapters({ course, index, refreshData }) {
         description: "Chapter has been updated successfully!",
       });
     } catch (error) {
-      // console.log(error);
+      console.error("Error updating chapter:", error);
       toast({
         variant: "destructive",
         duration: 3000,

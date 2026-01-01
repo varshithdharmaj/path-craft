@@ -1,16 +1,11 @@
 "use client";
-import { db } from "@/integrations/db";
-import { CourseList, Chapters } from "@/integrations/schema";
 import { useUser } from "@clerk/nextjs";
-import { and, eq } from "drizzle-orm";
 import React, { useEffect, useState } from "react";
 import CourseBasicInfo from "./_components/CourseBasicInfo";
 import CourseDetail from "./_components/CourseDetail";
 import ChapterList from "./_components/ChapterList";
 import { Button } from "@/components/ui/button";
-import { GenerateChapterContent_AI } from "@/integrations/model";
 import LoadingDialog from "../_components/LoadingDialog";
-import getVideos from "@/integrations/service";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 
@@ -35,19 +30,16 @@ function CourseLayout({ params }) {
   const GetCourse = async () => {
     try {
       const params = await Params;
-      const result = await db
-        .select()
-        .from(CourseList)
-        .where(
-          and(
-            eq(CourseList.courseId, params?.courseId),
-            eq(CourseList?.createdBy, user?.primaryEmailAddress?.emailAddress)
-          )
-        );
-      setCourse(result[0]);
-      // console.log("Course data:", result[0]);
+      const response = await fetch(`/api/courses/${params?.courseId}`);
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch course");
+      }
+      
+      const courseData = await response.json();
+      setCourse(courseData);
     } catch (error) {
-      // console.error("Error fetching course:", error);
+      console.error("Error fetching course:", error);
       toast({
         variant: "destructive",
         duration: 3000,
@@ -65,16 +57,13 @@ function CourseLayout({ params }) {
       const includeVideo = course?.includeVideo;
   
       // Delete previous content if generated and got any error
-      const checkPreviousContent = await db
-        .select()
-        .from(Chapters)
-        .where(eq(Chapters.courseId, course?.courseId));
+      const checkResponse = await fetch(`/api/chapters?courseId=${course?.courseId}`);
+      const checkPreviousContent = await checkResponse.json();
   
       if (checkPreviousContent.length > 0) {
-        await db
-          .delete(Chapters)
-          .where(eq(Chapters.courseId, course?.courseId))
-          .returning({ id: Chapters?.id });
+        await fetch(`/api/chapters/${course?.courseId}`, {
+          method: "DELETE",
+        });
       }
   
       for (const [index, chapter] of chapters.entries()) {
@@ -107,39 +96,51 @@ function CourseLayout({ params }) {
           }
         `;
   
-        const result = await GenerateChapterContent_AI.sendMessage(PROMPT);
-        const resultText = await result?.response?.text();
+        // Call AI API to generate chapter content
+        const aiResponse = await fetch("/api/ai/generate-content", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ prompt: PROMPT }),
+        });
   
-        console.log("Raw AI Response:", resultText);
-  
-        let content;
-        try {
-          content = JSON.parse(resultText);
-        } catch (error) {
-          console.error("Invalid JSON format:", error.message);
-          toast({
-            variant: "destructive",
-            duration: 5000,
-            title: "JSON Parsing Error",
-            description: "The generated JSON content is invalid. Please try again.",
-          });
-          return; // Stop execution if JSON is invalid
+        if (!aiResponse.ok) {
+          const errorData = await aiResponse.json();
+          throw new Error(errorData.error || "Failed to generate chapter content");
         }
+  
+        const content = await aiResponse.json();
   
         // Generate Video URL
         let videoId = [];
         if (includeVideo === "Yes") {
-          const resp = await getVideos(course?.name + ":" + chapter?.ChapterName);
-          videoId = resp?.slice(0, 3).map((vid) => vid?.id?.videoId) || [];
+          const videoQuery = course?.name + ":" + chapter?.ChapterName;
+          const videoResponse = await fetch(`/api/youtube?q=${encodeURIComponent(videoQuery)}&maxResults=3`);
+          
+          if (videoResponse.ok) {
+            const videos = await videoResponse.json();
+            videoId = videos?.slice(0, 3).map((vid) => vid?.id?.videoId) || [];
+          }
         }
   
         // Save Chapter Content + Video URL
-        await db.insert(Chapters).values({
-          chapterId: index,
-          courseId: course?.courseId,
-          content: JSON.stringify(content), // Store as a string to avoid formatting issues
-          videoId: videoId,
+        const saveResponse = await fetch("/api/chapters", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            courseId: course?.courseId,
+            chapterId: index,
+            content: JSON.stringify(content),
+            videoId: videoId,
+          }),
         });
+  
+        if (!saveResponse.ok) {
+          throw new Error("Failed to save chapter");
+        }
   
         toast({
           duration: 2000,
@@ -148,10 +149,14 @@ function CourseLayout({ params }) {
         });
       }
   
-      await db
-        .update(CourseList)
-        .set({ publish: true })
-        .where(eq(CourseList.courseId, course?.courseId));
+      // Update course to published
+      await fetch(`/api/courses/${course?.courseId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ publish: true }),
+      });
   
       toast({
         variant: "success",

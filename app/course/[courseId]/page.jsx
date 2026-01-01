@@ -3,10 +3,7 @@ import ChapterList from "@/app/create-course-path/[courseId]/_components/Chapter
 import CourseBasicInfo from "@/app/create-course-path/[courseId]/_components/CourseBasicInfo";
 import CourseDetail from "@/app/create-course-path/[courseId]/_components/CourseDetail";
 import Header from "@/app/dashboard/_components/Header";
-import { db } from "@/integrations/db";
-import { CourseList } from "@/integrations/schema";
 import { useToast } from "@/hooks/use-toast";
-import { eq } from "drizzle-orm";
 import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
 import Skeleton from "react-loading-skeleton";
@@ -24,12 +21,16 @@ function Course({ params }) {
 
   const GetCourse = async () => {
     try {
-      const result = await db
-        .select()
-        .from(CourseList)
-        .where(eq(CourseList.courseId, Params?.courseId));
+      const params = await Params;
+      const response = await fetch(`/api/courses/${params?.courseId}`);
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch course");
+      }
+      
+      const courseData = await response.json();
 
-      if (result[0]?.publish == false) {
+      if (courseData?.publish == false) {
         router.replace("/dashboard");
         toast({
           variant: "destructive",
@@ -38,11 +39,11 @@ function Course({ params }) {
         });
         return;
       }
-      // console.log(result[0]);
-      setCourse(result[0]);
+      
+      setCourse(courseData);
       setLoading(false);
     } catch (error) {
-      // console.log(error);
+      console.error("Error fetching course:", error);
       toast({
         variant: "destructive",
         duration: 3000,

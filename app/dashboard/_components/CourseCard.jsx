@@ -3,9 +3,6 @@ import Image from "next/image";
 import React from "react";
 import { HiOutlineBookOpen, HiEllipsisVertical } from "react-icons/hi2";
 import DropdownOption from "./DropdownOption";
-import { db } from "@/integrations/db";
-import { Chapters, CourseList } from "@/integrations/schema";
-import { eq } from "drizzle-orm";
 import { deleteObject, ref } from "firebase/storage";
 import { storage } from "@/integrations/firebaseConfig";
 import Link from "next/link";
@@ -26,26 +23,23 @@ function CourseCard({ course, refreshData, displayUser = false }) {
         await deleteObject(fileRef);
       }
 
-      const courseResponse = await db
-        .delete(CourseList)
-        .where(eq(CourseList.id, course?.id))
-        .returning({ id: CourseList?.id });
-      const chapterResponse = await db
-        .delete(Chapters)
-        .where(eq(Chapters.courseId, course?.courseId))
-        .returning({ id: Chapters?.id });
+      const response = await fetch(`/api/courses/${course?.courseId}`, {
+        method: "DELETE",
+      });
 
-      if (courseResponse && chapterResponse) {
-        refreshData();
-        toast({
-          variant: "success",
-          duration: 3000,
-          title: "Course Deleted Successfully!",
-          description: "Course has been deleted successfully!",
-        });
+      if (!response.ok) {
+        throw new Error("Failed to delete course");
       }
+
+      refreshData();
+      toast({
+        variant: "success",
+        duration: 3000,
+        title: "Course Deleted Successfully!",
+        description: "Course has been deleted successfully!",
+      });
     } catch (error) {
-      // console.log("Error during deletion : " + error);
+      console.error("Error during deletion:", error);
       toast({
         variant: "destructive",
         duration: 3000,

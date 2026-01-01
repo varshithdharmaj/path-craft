@@ -47,3 +47,5 @@ migrations/
 .env.local
 
 .vscode/
+# clerk configuration (can include secrets)
+/.clerk/
