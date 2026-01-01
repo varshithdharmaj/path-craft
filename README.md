@@ -44,7 +44,8 @@ To set up and run PathCraft locally, follow these steps:
      ```bash
      cp .env.example .env.local
      ```
-   - Edit `.env.local` and add all required environment variables (see `.env.example` for reference)
+   - Edit `.env.local` and add all required environment variables
+   - See [`.env.example`](./.env.example) for a complete list of all required environment variables with descriptions
 
 4. **Set up the database**:
    ```bash
