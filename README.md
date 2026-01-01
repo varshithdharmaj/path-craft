@@ -1,5 +1,11 @@
 PathCraft is a full-stack web application designed to generate personalized course paths using artificial intelligence. By integrating Next.js, Gemini AI, and the YouTube API, PathCraft creates comprehensive learning experiences that include notes, assignments, and curated video content based on user-defined topics.
 
+## 🌐 Live Application
+
+**🔗 [View Live Application](https://path-craft-2gbl-git-main-varshithdharmajs-projects.vercel.app)**
+
+The application is deployed and live on Vercel.
+
 ## Features
 
 - **AI-Generated Course Content**: Utilizes Gemini AI to generate structured course materials, including notes and assignments, tailored to specific subjects.
