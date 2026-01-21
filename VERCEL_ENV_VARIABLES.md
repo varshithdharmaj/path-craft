@@ -23,8 +23,8 @@ NEON_DATABASE_URL=postgresql://user:password@host:port/database
 ### 2. Clerk Authentication (Required)
 
 ```
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-CLERK_SECRET_KEY=sk_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
+CLERK_SECRET_KEY=
 ```
 
 > **💡 Get it from**: [Clerk Dashboard](https://dashboard.clerk.com) → **API Keys**
@@ -36,7 +36,7 @@ CLERK_SECRET_KEY=sk_test_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ### 3. Gemini AI (Required)
 
 ```
-GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+GEMINI_API_KEY=
 ```
 
 > **💡 Get it from**: [Google AI Studio](https://makersuite.google.com/app/apikey)
